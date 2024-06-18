@@ -9,7 +9,7 @@ async fn test_generator() {
         message: String,
     }
 
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Clone, PartialEq, borsh::BorshSerialize, borsh::BorshDeserialize)]
     struct User {
         id: usize,
     }

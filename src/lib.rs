@@ -12,16 +12,14 @@ macro_rules! protocol {
         )*
     ) => {
         purveyor::paste::paste! {
-            #[derive(Debug, Clone)]
-            #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
+            #[derive(Debug, Clone, borsh::BorshSerialize, borsh::BorshDeserialize)]
             pub enum Request {
                 $(
                     $([<$module:camel $handler:camel>]( $($type),* )),*
                 ),*
             }
 
-            #[derive(Debug, Clone)]
-            #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
+            #[derive(Debug, Clone, borsh::BorshSerialize, borsh::BorshDeserialize)]
             pub enum Response {
                 $(
                     $([<$module:camel $handler:camel>]( $ret )),*
