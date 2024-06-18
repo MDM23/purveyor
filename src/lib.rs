@@ -67,7 +67,7 @@ macro_rules! protocol {
                 }
 
                 impl<'a, T: Transport> [<$module:camel Client>]<'a, T> {
-                    $(async fn $handler(&self, $($arg: $type),* ) -> Result<$ret, $err> {
+                    $(pub async fn $handler(&self, $($arg: $type),* ) -> Result<$ret, $err> {
                         if let Response::[<$module:camel $handler:camel>](out) = self.transport.send( Request::[<$module:camel $handler:camel>]( $($arg),* ) ).await? {
                             Ok(out)
                         } else {
