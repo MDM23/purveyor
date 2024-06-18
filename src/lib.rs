@@ -3,6 +3,8 @@ pub use paste;
 #[macro_export]
 macro_rules! protocol {
     (
+        type Error = $err:ident;
+
         $(
             $module:ident {
                 $(
@@ -28,14 +30,18 @@ macro_rules! protocol {
 
             $(
                 #[allow(async_fn_in_trait)]
-                pub trait [<$module:camel Server>]<ERROR> {
-                    $(async fn $handler(&self, $($arg: $type),* ) -> Result<$ret, ERROR>;)*
+                pub trait [<$module:camel Server>] {
+                    type Error: Into<$err>;
+
+                    $(async fn $handler(&self, $($arg: $type),* ) -> Result<$ret, Self::Error>;)*
                 }
             )*
 
-            pub trait Server<ERROR>: $([<$module:camel Server>]<ERROR>+)* {
+            pub trait Server: $([<$module:camel Server>]<Error = <Self as Server>::Error>+)* {
+                type Error: Into<$err>;
+
                 #[allow(async_fn_in_trait)]
-                async fn receive(&self, request: Request) -> Result<Response, ERROR> {
+                async fn receive(&self, request: Request) -> Result<Response, <Self as Server>::Error> {
                     Ok(match request {
                         $(
                             $(Request::[<$module:camel $handler:camel>]($($arg),*) => {
@@ -51,18 +57,17 @@ macro_rules! protocol {
             }
 
             #[allow(async_fn_in_trait)]
-            pub trait Transport<ERROR> {
-                async fn send(&self, request: Request) -> Result<Response, ERROR>;
+            pub trait Transport {
+                async fn send(&self, request: Request) -> Result<Response, $err>;
             }
 
             $(
-                pub struct [<$module:camel Client>]<'a, T: Transport<ERROR>, ERROR> {
+                pub struct [<$module:camel Client>]<'a, T: Transport> {
                     transport: &'a T,
-                    _error: std::marker::PhantomData<ERROR>,
                 }
 
-                impl<'a, T: Transport<ERROR>, ERROR> [<$module:camel Client>]<'a, T, ERROR> {
-                    $(async fn $handler(&self, $($arg: $type),* ) -> Result<$ret, ERROR> {
+                impl<'a, T: Transport> [<$module:camel Client>]<'a, T> {
+                    $(async fn $handler(&self, $($arg: $type),* ) -> Result<$ret, $err> {
                         if let Response::[<$module:camel $handler:camel>](out) = self.transport.send( Request::[<$module:camel $handler:camel>]( $($arg),* ) ).await? {
                             Ok(out)
                         } else {
@@ -72,23 +77,20 @@ macro_rules! protocol {
                 }
             )*
 
-            pub struct Client<T: Transport<ERROR>, ERROR> {
+            pub struct Client<T: Transport> {
                 transport: T,
-                _error: std::marker::PhantomData<ERROR>,
             }
 
-            impl<'a, T: Transport<ERROR>, ERROR> Client<T, ERROR> {
+            impl<'a, T: Transport> Client<T> {
                 pub fn new(transport: T) -> Self {
                     Self {
                         transport,
-                        _error: std::marker::PhantomData,
                     }
                 }
 
-                $(pub fn [<$module:snake>](&'a self) -> [<$module:camel Client>]<'a, T, ERROR> {
+                $(pub fn [<$module:snake>](&'a self) -> [<$module:camel Client>]<'a, T> {
                     [<$module:camel Client>] {
                         transport: &self.transport,
-                        _error: self._error,
                     }
                 })*
             }

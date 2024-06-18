@@ -5,7 +5,7 @@ async fn test_generator() {
     // -------------------------------------------------------------------------
 
     #[derive(Debug, PartialEq)]
-    struct MyError {
+    struct PublicError {
         message: String,
     }
 
@@ -15,6 +15,8 @@ async fn test_generator() {
     }
 
     purveyor::protocol!(
+        type Error = PublicError;
+
         user {
             fn load(id: usize) -> User;
             fn delete(id: usize) -> ();
@@ -29,24 +31,43 @@ async fn test_generator() {
     //                              Server side
     // -------------------------------------------------------------------------
 
+    #[derive(Debug, PartialEq)]
+    struct InternalError {
+        message: String,
+    }
+
+    impl Into<PublicError> for InternalError {
+        fn into(self) -> PublicError {
+            PublicError {
+                message: self.message,
+            }
+        }
+    }
+
     #[derive(Clone)]
     struct TestServer {}
 
-    impl Server<MyError> for TestServer {}
+    impl Server for TestServer {
+        type Error = InternalError;
+    }
 
-    impl UserServer<MyError> for TestServer {
-        async fn load(&self, id: usize) -> Result<User, MyError> {
+    impl UserServer for TestServer {
+        type Error = InternalError;
+
+        async fn load(&self, id: usize) -> Result<User, Self::Error> {
             Ok(User { id })
         }
 
-        async fn delete(&self, _id: usize) -> Result<(), MyError> {
+        async fn delete(&self, _id: usize) -> Result<(), Self::Error> {
             Ok(())
         }
     }
 
-    impl ReportServer<MyError> for TestServer {
-        async fn delete(&self, _id: usize) -> Result<(), MyError> {
-            Err(MyError {
+    impl ReportServer for TestServer {
+        type Error = InternalError;
+
+        async fn delete(&self, _id: usize) -> Result<(), Self::Error> {
+            Err(InternalError {
                 message: String::from("Cannot delete"),
             })
         }
@@ -61,9 +82,9 @@ async fn test_generator() {
         server: TestServer,
     }
 
-    impl Transport<MyError> for TestTransport {
-        async fn send(&self, request: Request) -> Result<Response, MyError> {
-            self.server.receive(request).await
+    impl Transport for TestTransport {
+        async fn send(&self, request: Request) -> Result<Response, PublicError> {
+            self.server.receive(request).await.map_err(Into::into)
         }
     }
 
@@ -74,7 +95,7 @@ async fn test_generator() {
     assert_eq!(Ok(User { id: 1 }), client.user().load(1).await);
 
     assert_eq!(
-        Err(MyError {
+        Err(PublicError {
             message: String::from("Cannot delete")
         }),
         client.report().delete(1).await
