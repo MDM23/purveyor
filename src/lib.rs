@@ -53,7 +53,7 @@ macro_rules! protocol {
             }
 
             #[allow(async_fn_in_trait)]
-            pub trait Transport<ERROR>: Clone {
+            pub trait Transport<ERROR> {
                 async fn send(&self, request: Request) -> Result<Response, ERROR>;
             }
 
