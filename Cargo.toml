@@ -1,0 +1,17 @@
+[package]
+name = "purveyor"
+description = "Macros to generate server and client code from a simple protocol definition"
+license-file = "LICENSE"
+repository = "https://github.com/MDM23/purveyor"
+version = "0.1.1"
+edition = "2021"
+
+[features]
+borsh = ["dep:borsh"]
+
+[dependencies]
+borsh = { version = "1.5.1", features = ["derive"], optional = true }
+paste = "1.0"
+
+[dev-dependencies]
+tokio = { version = "1.38", features = ["rt", "macros"] }
