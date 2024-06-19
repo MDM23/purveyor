@@ -3,7 +3,7 @@ pub use paste;
 #[macro_export]
 macro_rules! protocol {
     (
-        type Error = $err:ident;
+        type Error = $err:ty;
 
         $(
             $module:ident {
@@ -13,7 +13,11 @@ macro_rules! protocol {
             }
         )*
     ) => {
-        purveyor::paste::paste! {
+        $crate::paste::paste! {
+            // -----------------------------------------------------------------
+            //                        Transport layer
+            // -----------------------------------------------------------------
+
             #[derive(Debug, Clone, borsh::BorshSerialize, borsh::BorshDeserialize)]
             pub enum Request {
                 $(
@@ -28,6 +32,15 @@ macro_rules! protocol {
                 ),*
             }
 
+            #[allow(async_fn_in_trait)]
+            pub trait Transport {
+                async fn send(&self, request: Request) -> Result<Response, $err>;
+            }
+
+            // -----------------------------------------------------------------
+            //                        Server traits
+            // -----------------------------------------------------------------
+
             $(
                 #[allow(async_fn_in_trait)]
                 pub trait [<$module:camel Server>] {
@@ -36,6 +49,7 @@ macro_rules! protocol {
                     $(async fn $handler(&self, $($arg: $type),* ) -> Result<$ret, Self::Error>;)*
                 }
             )*
+
 
             pub trait Server: $([<$module:camel Server>]<Error = <Self as Server>::Error>+)* {
                 type Error: Into<$err>;
@@ -56,19 +70,16 @@ macro_rules! protocol {
                 }
             }
 
-            #[allow(async_fn_in_trait)]
-            pub trait Transport {
-                async fn send(&self, request: Request) -> Result<Response, $err>;
-            }
+            // -----------------------------------------------------------------
+            //                        Client traits
+            // -----------------------------------------------------------------
 
             $(
-                pub struct [<$module:camel Client>]<'a, T: Transport> {
-                    transport: &'a T,
-                }
+                pub struct [<$module:camel Client>]<T: Transport> (pub T);
 
-                impl<'a, T: Transport> [<$module:camel Client>]<'a, T> {
+                impl<T: Transport> [<$module:camel Client>]<T> {
                     $(pub async fn $handler(&self, $($arg: $type),* ) -> Result<$ret, $err> {
-                        if let Response::[<$module:camel $handler:camel>](out) = self.transport.send( Request::[<$module:camel $handler:camel>]( $($arg),* ) ).await? {
+                        if let Response::[<$module:camel $handler:camel>](out) = self.0.send( Request::[<$module:camel $handler:camel>]( $($arg),* ) ).await? {
                             Ok(out)
                         } else {
                             unreachable!()
@@ -77,22 +88,17 @@ macro_rules! protocol {
                 }
             )*
 
-            pub struct Client<T: Transport> {
-                transport: T,
-            }
-
-            impl<'a, T: Transport> Client<T> {
-                pub fn new(transport: T) -> Self {
-                    Self {
-                        transport,
+            #[macro_export]
+            macro_rules! __impl_modules {
+                ($target:ty) => {
+                    impl $target {
+                        $(
+                            pub fn [<$module:snake>](&self) -> [<$module:camel Client>]<&$target> {
+                                [<$module:camel Client>](self)
+                            }
+                        )*
                     }
                 }
-
-                $(pub fn [<$module:snake>](&'a self) -> [<$module:camel Client>]<'a, T> {
-                    [<$module:camel Client>] {
-                        transport: &self.transport,
-                    }
-                })*
             }
         }
     };

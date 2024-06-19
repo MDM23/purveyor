@@ -3,7 +3,7 @@ name = "purveyor"
 description = "Macros to generate server and client code from a simple protocol definition"
 license-file = "LICENSE"
 repository = "https://github.com/MDM23/purveyor"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 
 [dependencies]

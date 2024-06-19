@@ -44,14 +44,13 @@ async fn test_generator() {
         }
     }
 
-    #[derive(Clone)]
-    struct TestServer {}
+    struct MyServer {}
 
-    impl Server for TestServer {
+    impl Server for MyServer {
         type Error = InternalError;
     }
 
-    impl UserServer for TestServer {
+    impl UserServer for MyServer {
         type Error = InternalError;
 
         async fn load(&self, id: usize) -> Result<User, Self::Error> {
@@ -59,16 +58,16 @@ async fn test_generator() {
         }
 
         async fn delete(&self, _id: usize) -> Result<(), Self::Error> {
-            Ok(())
+            unreachable!()
         }
     }
 
-    impl ReportServer for TestServer {
+    impl ReportServer for MyServer {
         type Error = InternalError;
 
         async fn delete(&self, _id: usize) -> Result<(), Self::Error> {
             Err(InternalError {
-                message: String::from("Cannot delete"),
+                message: "Cannot delete".into(),
             })
         }
     }
@@ -77,20 +76,21 @@ async fn test_generator() {
     //                              Client side
     // -------------------------------------------------------------------------
 
-    #[derive(Clone)]
-    struct TestTransport {
-        server: TestServer,
+    struct MyClient {
+        server: MyServer,
     }
 
-    impl Transport for TestTransport {
+    impl Transport for &MyClient {
         async fn send(&self, request: Request) -> Result<Response, PublicError> {
             self.server.receive(request).await.map_err(Into::into)
         }
     }
 
-    let client = Client::new(TestTransport {
-        server: TestServer {},
-    });
+    __impl_modules!(MyClient);
+
+    let client = MyClient {
+        server: MyServer {},
+    };
 
     assert_eq!(Ok(User { id: 1 }), client.user().load(1).await);
 
